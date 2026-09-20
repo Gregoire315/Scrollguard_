@@ -9,20 +9,24 @@ import android.graphics.Color
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
+import android.text.InputType
 import android.text.format.DateUtils
 import android.view.accessibility.AccessibilityManager
 import android.widget.Button
+import android.widget.EditText
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var statusText: TextView
     private lateinit var diagnosticText: TextView
+    private lateinit var messagesEditText: EditText
 
     private val notificationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
@@ -32,7 +36,7 @@ class MainActivity : AppCompatActivity() {
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(48, 96, 48, 48)
+            setPadding(48, 96, 48, 96)
         }
 
         val title = TextView(this).apply {
@@ -43,7 +47,7 @@ class MainActivity : AppCompatActivity() {
 
         val explanation = TextView(this).apply {
             text = "Rappels toutes les 5 minutes tant qu'Instagram ou X sont ouverts dans Chrome. " +
-                "Deux étapes sont nécessaires ci-dessous pour que ça fonctionne."
+                "Au 2e rappel, tu es aussi renvoyé à l'écran d'accueil."
             setPadding(0, 0, 0, 48)
         }
 
@@ -73,6 +77,34 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        val messagesTitle = TextView(this).apply {
+            text = "Mes messages (un par ligne)"
+            setPadding(0, 64, 0, 8)
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
+        }
+
+        val messagesHint = TextView(this).apply {
+            text = "Un message est tiré au sort dans cette liste à chaque rappel. " +
+                "Laisse vide et enregistre pour revenir aux messages par défaut."
+            setTextColor(Color.DKGRAY)
+            setPadding(0, 0, 0, 16)
+        }
+
+        messagesEditText = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
+            minLines = 8
+            gravity = android.view.Gravity.TOP or android.view.Gravity.START
+            setText(ReminderManager.getMessages(this@MainActivity).joinToString("\n"))
+        }
+
+        val saveMessagesButton = Button(this).apply {
+            text = "Enregistrer mes messages"
+            setPadding(0, 16, 0, 0)
+            setOnClickListener {
+                saveCustomMessages()
+            }
+        }
+
         val diagnosticTitle = TextView(this).apply {
             text = "Diagnostic (dernière détection dans Chrome)"
             setPadding(0, 64, 0, 8)
@@ -99,17 +131,31 @@ class MainActivity : AppCompatActivity() {
         root.addView(notificationButton)
         root.addView(testButton)
         root.addView(statusText)
+        root.addView(messagesTitle)
+        root.addView(messagesHint)
+        root.addView(messagesEditText)
+        root.addView(saveMessagesButton)
         root.addView(diagnosticTitle)
         root.addView(diagnosticText)
         root.addView(note)
 
-        setContentView(root)
+        setContentView(ScrollView(this).apply { addView(root) })
     }
 
     override fun onResume() {
         super.onResume()
         updateStatus()
         updateDiagnostic()
+    }
+
+    private fun saveCustomMessages() {
+        val lines = messagesEditText.text.toString().split("\n")
+        ReminderManager.saveMessages(this, lines)
+        val savedCount = ReminderManager.getMessages(this).size
+        Toast.makeText(this, "$savedCount message(s) enregistré(s).", Toast.LENGTH_SHORT).show()
+        // Recharge le champ pour refléter la liste réellement utilisée
+        // (par ex. si tout était vide, on revient aux messages par défaut).
+        messagesEditText.setText(ReminderManager.getMessages(this).joinToString("\n"))
     }
 
     private fun updateStatus() {
