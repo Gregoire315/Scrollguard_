@@ -17,6 +17,10 @@ import android.view.accessibility.AccessibilityNodeInfo
  */
 class ScrollGuardAccessibilityService : AccessibilityService() {
 
+    companion object {
+        var instance: ScrollGuardAccessibilityService? = null
+    }
+
     private val chromePackage = "com.android.chrome"
 
     private val trackedDomains = listOf(
@@ -24,6 +28,21 @@ class ScrollGuardAccessibilityService : AccessibilityService() {
         "x.com",
         "twitter.com"
     )
+
+    override fun onServiceConnected() {
+        super.onServiceConnected()
+        instance = this
+    }
+
+    override fun onDestroy() {
+        if (instance === this) instance = null
+        super.onDestroy()
+    }
+
+    override fun onUnbind(intent: android.content.Intent?): Boolean {
+        if (instance === this) instance = null
+        return super.onUnbind(intent)
+    }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         val eventPackage = event.packageName?.toString()
