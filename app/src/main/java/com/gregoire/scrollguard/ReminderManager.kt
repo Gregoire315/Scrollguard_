@@ -1,5 +1,6 @@
 package com.gregoire.scrollguard
 
+import android.accessibilityservice.AccessibilityService
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
@@ -13,7 +14,9 @@ import androidx.core.app.NotificationManagerCompat
  * Boucle de rappel : tant que l'utilisateur reste sur un site suivi
  * (Instagram / X), une notification s'affiche toutes les 5 minutes avec un
  * message motivant tiré au sort. Le cycle s'arrête dès que le service
- * d'accessibilité signale qu'on a quitté le site.
+ * d'accessibilité signale qu'on a quitté le site. Au 2e rappel, en plus de
+ * la notification, l'utilisateur est renvoyé à l'écran d'accueil (Chrome
+ * passe en arrière-plan).
  */
 object ReminderManager {
 
@@ -21,10 +24,14 @@ object ReminderManager {
     private const val NOTIFICATION_ID = 4242
     private const val INTERVAL_MS = 5 * 60 * 1000L // 5 minutes
 
+    private const val PREFS_NAME = "scrollguard_prefs"
+    private const val KEY_MESSAGES = "custom_messages"
+
     private val handler = Handler(Looper.getMainLooper())
     private var isActive = false
+    private var tickCount = 0
 
-    private val messages = listOf(
+    private val defaultMessages = listOf(
         "Tu veux vraiment passer encore 5 minutes ici ? Retourne à ton projet.",
         "Lève-toi. Bois un verre d'eau. Puis retourne construire quelque chose.",
         "Instagram peut attendre. Ton projet, lui, avance maintenant.",
@@ -40,7 +47,13 @@ object ReminderManager {
     private val tickRunnable = object : Runnable {
         override fun run() {
             if (!isActive) return
-            appContext?.let { showReminder(it) }
+            tickCount += 1
+            appContext?.let { context ->
+                showReminder(context)
+                if (tickCount == 2) {
+                    closeChromeSession()
+                }
+            }
             handler.postDelayed(this, INTERVAL_MS)
         }
     }
@@ -50,6 +63,7 @@ object ReminderManager {
     fun start(context: Context) {
         if (isActive) return
         isActive = true
+        tickCount = 0
         appContext = context.applicationContext
         ensureChannel(appContext!!)
         // Premier rappel après 5 minutes, pas immédiatement à l'ouverture.
@@ -59,6 +73,7 @@ object ReminderManager {
     fun stop() {
         if (!isActive) return
         isActive = false
+        tickCount = 0
         handler.removeCallbacks(tickRunnable)
     }
 
@@ -71,6 +86,27 @@ object ReminderManager {
         val appContextLocal = context.applicationContext
         ensureChannel(appContextLocal)
         showReminder(appContextLocal)
+    }
+
+    /**
+     * Renvoie les messages actuellement utilisés : ceux personnalisés par
+     * l'utilisateur s'il en a enregistré, sinon la liste par défaut.
+     */
+    fun getMessages(context: Context): List<String> {
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val saved = prefs.getString(KEY_MESSAGES, null) ?: return defaultMessages
+        val list = saved.split("\n").map { it.trim() }.filter { it.isNotEmpty() }
+        return if (list.isEmpty()) defaultMessages else list
+    }
+
+    /**
+     * Enregistre une nouvelle liste de messages personnalisés. Une liste
+     * vide efface la personnalisation et revient aux messages par défaut.
+     */
+    fun saveMessages(context: Context, messages: List<String>) {
+        val cleaned = messages.map { it.trim() }.filter { it.isNotEmpty() }
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs.edit().putString(KEY_MESSAGES, cleaned.joinToString("\n")).apply()
     }
 
     private fun ensureChannel(context: Context) {
@@ -86,7 +122,7 @@ object ReminderManager {
     }
 
     private fun showReminder(context: Context) {
-        val message = messages.random()
+        val message = getMessages(context).random()
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setContentTitle("Stop.")
             .setContentText(message)
@@ -107,5 +143,16 @@ object ReminderManager {
                 // sera re-sollicité depuis MainActivity.
             }
         }
+    }
+
+    /**
+     * Renvoie l'utilisateur à l'écran d'accueil, ce qui fait passer Chrome
+     * en arrière-plan. Le service d'accessibilité détectera ensuite ce
+     * changement d'application et appellera stop() automatiquement.
+     */
+    private fun closeChromeSession() {
+        ScrollGuardAccessibilityService.instance?.performGlobalAction(
+            AccessibilityService.GLOBAL_ACTION_HOME
+        )
     }
 }
