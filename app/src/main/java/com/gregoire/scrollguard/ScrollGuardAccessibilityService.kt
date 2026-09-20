@@ -1,6 +1,7 @@
 package com.gregoire.scrollguard
 
 import android.accessibilityservice.AccessibilityService
+import android.content.Context
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 
@@ -30,6 +31,7 @@ class ScrollGuardAccessibilityService : AccessibilityService() {
         if (eventPackage != chromePackage) {
             // On n'est plus dans Chrome du tout -> on coupe les rappels.
             ReminderManager.stop()
+            writeDebugInfo(eventPackage ?: "(aucun)", matched = false, snippet = "")
             return
         }
 
@@ -38,6 +40,8 @@ class ScrollGuardAccessibilityService : AccessibilityService() {
         val isOnTrackedSite = trackedDomains.any { domain ->
             currentUrl.contains(domain, ignoreCase = true)
         }
+
+        writeDebugInfo(eventPackage, matched = isOnTrackedSite, snippet = currentUrl)
 
         if (isOnTrackedSite) {
             ReminderManager.start(applicationContext)
@@ -48,6 +52,20 @@ class ScrollGuardAccessibilityService : AccessibilityService() {
 
     override fun onInterrupt() {
         ReminderManager.stop()
+    }
+
+    /**
+     * Écrit l'état de la dernière détection dans les préférences partagées,
+     * pour que MainActivity puisse l'afficher à titre de diagnostic.
+     */
+    private fun writeDebugInfo(packageName: String, matched: Boolean, snippet: String) {
+        val prefs = getSharedPreferences("scrollguard_debug", Context.MODE_PRIVATE)
+        prefs.edit()
+            .putString("last_package", packageName)
+            .putBoolean("last_matched", matched)
+            .putString("last_snippet", snippet.take(150))
+            .putLong("last_timestamp", System.currentTimeMillis())
+            .apply()
     }
 
     /**
