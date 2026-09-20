@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ScrollGuard</string>
+    <string name="accessibility_service_description">Détecte quand Instagram ou X sont ouverts dans Chrome pour envoyer des rappels motivationnels toutes les 5 minutes. Ne lit et ne stocke aucune autre donnée.</string>
+</resources>
