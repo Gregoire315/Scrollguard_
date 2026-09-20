@@ -1,1 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
 
+    <!-- Cercle central clair -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,24 m-24,0 a24,24 0 1,1 48,0 a24,24 0 1,1 -48,0" />
+
+    <!-- Barres de pause, façon "stop" -->
+    <path
+        android:fillColor="#1F5A4C"
+        android:pathData="M44,14 L44,34 L50,34 L50,14 Z" />
+    <path
+        android:fillColor="#1F5A4C"
+        android:pathData="M58,14 L58,34 L64,34 L64,14 Z" />
+
+    <!-- Flèche de retour / progression, symbole de reprise en main -->
+    <path
+        android:fillColor="#F2A65A"
+        android:pathData="M30,70 C30,54 42,44 54,44 C68,44 78,54 78,68 L86,68 L74,84 L62,68 L70,68 C70,58 63,52 54,52 C45,52 38,59 38,70 Z" />
+</vector>
